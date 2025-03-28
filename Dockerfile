@@ -9,6 +9,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-venv \
     python3-pip \
+    openmpi-bin \
+    libopenmpi-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Julia LTS (update the version as needed; currently using 1.8.5 as an example)
@@ -24,6 +26,9 @@ RUN julia -e 'using Pkg; Pkg.add("IJulia"); Pkg.precompile()'
 RUN python3 -m venv /venv && \
     /venv/bin/pip install --upgrade pip && \
     /venv/bin/pip install notebook
+
+# Set 
+ENV PATH="/root/.julia/bin:$PATH"
 
 # Create a working directory for your notebooks
 WORKDIR /notebooks

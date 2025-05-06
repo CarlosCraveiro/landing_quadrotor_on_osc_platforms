@@ -1,16 +1,15 @@
-function verify_landing(x, x_ref)
-    #crit = [0.05; 0.05; 0.05; 0.10; 0.02; 0.1]
-    crit = [0.05; 0.05; 0.05; 0.05; 0.05; 0.05]
+include("Model_nd_Dynamics.jl")
 
-    sucess_check = true
-    for i = 1:(Nx)
-        if (abs(x[i] - x_ref[i]) >= crit[i])
-             sucess_check = false
-        end
-    end
-    return ~sucess_check
+"""
+    TODO...
+"""
+function verify_landing(x, xref)
+    return infinity_norm_of_difference(x, xref) < 0.05
 end
 
+"""
+    x0 - Initial state - Full Vector (13 size)
+"""
 function closed_loop(x0, state_space, tunning_params, traj_params, simulation, model, controller)
     local h_c = simulation.h_controller
     local h_uni = simulation.h_universe
@@ -21,8 +20,11 @@ function closed_loop(x0, state_space, tunning_params, traj_params, simulation, m
     local umax = model.umax
     local umin = model.umin
 
+    # xhist -> [ 13 = length(x0) ] x number of iterations
+    # FULL SIZE VECTOR
     xhist = zeros(length(x0), N_uni)
 
+    # CONTROLER INPUT FULL SIZE VECTOR
     u0 = controller(1, x0)
 
     uhist = zeros(length(u0), N_uni - 1)
@@ -43,26 +45,30 @@ function closed_loop(x0, state_space, tunning_params, traj_params, simulation, m
         local curr_time_inst = k * h_uni
 
         if(k % N_ratio == 0)
+            # CONTROLLER xhist -> FULL SIZE STATE VECTOR LENGTH
             uk = controller(curr_time_inst, xhist[:, k])
         end
 
         if not_landed
-            not_landed = verify_landing(xhist[:, k], gen_ref(state_space, traj_params, tunning_params, curr_time_inst, h_uni))
+            # VERIFY LANDING -- LENGTH -> FULL SIZE VECTOR, XHIST
+            not_landed = ~verify_landing(xhist[:, k], gen_ref(state_space, traj_params, tunning_params, curr_time_inst, h_uni))
             land_time = curr_time_inst
         end
 
         foo = gen_ref(state_space, traj_params, tunning_params, curr_time_inst, h_uni)
-        refyhist[k] = foo[2]
-        drefyhist[k] = foo[5]
+        
+        refyhist[k] = foo[3]
+        drefyhist[k] = foo[10]
 
-        plathist[k] = traj_y(traj_params, curr_time_inst) - traj_params.stat_height # Recover the current platform height
+        plathist[k] = traj_z(traj_params, curr_time_inst) - traj_params.stat_height # Recover the current platform height
         if k == N_uni # Goes to the N_uni - 1 step
             continue
         end
 
         uhist[:, k] = max.(min.(umax, uk), umin) #enforce control limits
 
-        local height = xhist[2, k] - plathist[k]
+        local height = xhist[3, k] - plathist[k]
+        # DYNAMICS_RK4 - FULL STATE VECTOR LENGTH
         xhist[:, k + 1] .= dynamics_rk4(xhist[:, k],uhist[:, k],(x,u)->quad_dynamics(model, x, u, height), simulation)
     end
 

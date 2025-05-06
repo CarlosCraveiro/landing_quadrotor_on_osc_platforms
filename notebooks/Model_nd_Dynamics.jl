@@ -2,6 +2,9 @@ import Pkg
 Pkg.activate(@__DIR__)
 
 using LinearAlgebra
+using Test
+
+include("Quaternion.jl")
 
 """
 Describes the data structure representing the planar quadrotor model and its physical properties, with units specified according to the International System of Units (SI).
@@ -22,12 +25,15 @@ mutable struct Model
     g::Float64 # gravity
     m::Float64 # mass
     ℓ::Float64 # inter-propeller distance
-    J::Float64 # inertia momment
+    J::Matrix{Float64} # inertia momment matrix
     R::Float64 # propeller radius
     prop_min_h::Float64 # TODO
     ρ::Float64 # GE correction factor (https://doi.org/10.1109/ChiCC.2015.7260521)
     umin::Vector{Float64} # Thrust inferior limit
     umax::Vector{Float64} # Thrust superior limit
+
+    kt::Float64 # Thrust Coefficient
+    km::Float64 # Moment Coefficient
 end
 
 """
@@ -46,6 +52,7 @@ end
 
 # Planar Quadrotor Dynamics for modeling
 """
+(DEPRECATED, Change the state vector (x) to update...)
 Computes the planar quadrotor's dynamics, considering ground effect. It calculates the state derivatives (linear and angular accelerations) based on the current state, control inputs (rotor thrusts), and platform height.
 
 **Business Rules:**
@@ -60,27 +67,77 @@ Computes the planar quadrotor's dynamics, considering ground effect. It calculat
 * **Platform Height:** `plat_h` represents the height of the ground platform, used to calculate the relative height for the ground effect model.
 """
 function quad_dynamics(model, x, u, plat_h)
-    θ = x[3]
-    GE = ground_effect(x[2] - plat_h, model.R, model.ρ, model.prop_min_h)
+    local r = x[1:3]
+    local q = x[4:7] / norm(x[4:7]) # Ensure q is a unit quaternion
+    local v = x[8:10] # Defined at the body frame
+    local ω = x[11:13] # Angular velocity
+    
+    local Q = qtoQ(q) # Compute the Rotation Matrix
 
-    ẍ = (1/model.m)*(u[1] + u[2])*sin(θ)*GE
+    local m = model.m
+    local g = model.g
+    local J = model.J
+    local kt = model.kt
+    local km = model.km
+    local ℓ = model.ℓ
 
-    ÿ = (1/model.m)*(u[1] + u[2])*cos(θ)*GE - model.g
+    quatm = QuaternionMatrices()
+    H = quatm.H
+    
+    dr = Q * v
+    dq = 0.5 * L(q)*H*ω
 
-    ô= (1/model.J)*(model.ℓ/2)*(u[2] - u[1])
-
-    return [x[4:6]; ẍ; ÿ; ô]
+    local kge = kt * ground_effect(x[2] - plat_h, model.R, model.ρ, model.prop_min_h)
+    
+    dv = Q'*[0; 0; -g] + (1/m)*[zeros(2,4); kge*ones(1,4)]*u - hat(ω)*v
+    
+    dω = J\(-hat(ω)*J*ω + [0 ℓ*kt 0 -ℓ*kt; -ℓ*kt 0 ℓ*kt 0; km -km km -km]*u)
+    
+    return [dr; dq; dv; dω]
 end
 
+"""
+    Infinity Norm
+"""
+function infinity_norm_of_difference(x, x_ref)
+    q = x[4:7]
+    q_ref = x_ref[4:7]
+    
+    # Ensure that q and q_ref are in the same hemisphere
+    # Avoid "windup" phenomenon caused by 4pi periodicity
+    if(q'*q_ref < 0)
+        q .= -q
+    end
+    
+    delta_phi = qtorp(L(q_ref)'*q)
+    
+    return maximum(abs, [x[1:3] - x_ref[1:3]; delta_phi; x[8:13] - x_ref[8:13]])
+end
+
+"""
+TODO...
+"""
 function find_hover_conditions(model, height)
-   # @test height >= model.prop_min_h
-   #
-    x_hover = [0.0, max(height, model.prop_min_h), 0.0, 0.0, 0.0, 0.0]
-    weight = model.m * model. g
-    GE = ground_effect(height, model.R, model.ρ, model.prop_min_h)
-    u_hover = [
-        0.5* weight / GE;
-        0.5* weight / GE
-    ]
+    @test height >= model.prop_min_h
+    
+    local r = [0.0; 0; max(height, model.prop_min_h)]
+    local q = [1.0; 0; 0; 0]
+    local v = zeros(3)
+    local ω = zeros(3)
+    x_hover = [r; q; v; ω];
+
+    local weight = model.m * model. g
+    
+    local kge = model.kt * ground_effect(height, model.R, model.ρ, model.prop_min_h)
+    
+    u_hover = (weight/(4*kge))*ones(4)
+    
     return x_hover, u_hover
+end
+
+"""
+    TODO...
+"""
+function reduce_x_state(x_full)
+    return [x_full[1:3]; qtorp(x_full[4:7]); x_full[8:13]]
 end

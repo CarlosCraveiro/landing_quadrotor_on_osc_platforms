@@ -28,5 +28,9 @@ function dynamics_rk4(x,u, dynamics, sim_param)
     f2 = dynamics(x + 0.5 * h_u * f1, u)
     f3 = dynamics(x + 0.5 * h_u * f2, u)
     f4 = dynamics(x + h_u * f3, u)
-    return x + (h_u / 6.0)*(f1 + 2*f2 + 2*f3 + f4)
+    xn = x + (h_u / 6.0)*(f1 + 2*f2 + 2*f3 + f4)
+    
+    xn[4:7] .= xn[4:7]/norm(xn[4:7]) #re-normalize quaternion
+    
+    return xn
 end

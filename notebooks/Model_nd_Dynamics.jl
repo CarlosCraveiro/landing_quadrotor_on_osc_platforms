@@ -34,6 +34,9 @@ mutable struct Model
 
     kt::Float64 # Thrust Coefficient
     km::Float64 # Moment Coefficient
+
+    Nx::Int32 # Full state vector size
+    Nu::Int32 # Full control dimension
 end
 
 """

@@ -33,16 +33,19 @@ end
 """
     h_c - time step (controller)
 """
-function gen_ref(state_space, traj_params, tunning_params, t, h_c)
-    local Nh = tunning_params.Nh
-    local Nx = state_space.Nx
+function gen_ref(model, traj_params, tunning_params, t, h_c)
+    z_pos = 3 # Position of z on the state vector
+    dz_pos = 10  # Position of dz on the state vect
+    Nh = tunning_params.Nh
+    Nx_full = model.Nx
+    
     # x_ref needs to be full length size - LINEAR SIZE + 1
-    x_ref = zeros((Nx + 1) * Nh) # Initialize the reference with zeros
+    x_ref = zeros(Nx_full * Nh) # Initialize the reference with zeros
 
     for j = 1:Nh # for each element on the predictive horizon
-        x_ref[(Nx + 1)*(j-1) + 3] = traj_z(traj_params, t+(j*h_c))
-        x_ref[(Nx + 1)*(j-1) + 4] = 1.0
-        x_ref[(Nx + 1)*(j-1) + 10] = traj_z_dot(traj_params, (t+(j*h_c)))
+        x_ref[Nx_full*(j-1) + z_pos] = traj_z(traj_params, t+(j*h_c))
+        x_ref[Nx_full*(j-1) + 4] = 1.0 # Asserts the reference quaternion to be q = [1 0 0 0] 
+        x_ref[Nx_full*(j-1) + dz_pos] = traj_z_dot(traj_params, (t+(j*h_c)))
     end
 
     return x_ref

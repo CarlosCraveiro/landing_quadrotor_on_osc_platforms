@@ -19,14 +19,12 @@ A mutable struct to hold the tuning parameters for the Model Predictive Controll
 - `Nc::Int64`: Control horizon - the number of future time steps over which the control inputs are optimized (Nc <= Nh).
 - `Q::Matrix{Float64}`: Stage State Cost Penalty - a positive semi-definite matrix penalizing deviations from the desired state at each step within the prediction horizon.
 - `R::Matrix{Float64}`: Stage Control Cost Penalty - a positive definite matrix penalizing the control effort at each step within the control horizon.
-- `Qn::Matrix{Float64}`: Terminal State Cost Penalty - a positive semi-definite matrix penalizing the deviation from the desired state at the end of the prediction horizon.
 """
 mutable struct MPCTunningParameters
     Nh::Int64           # Predictive horizon
     Nc::Int64           # Control horizon (Nc < Nh)
     Q::Matrix{Float64}  # Stage State Cost Penalty
     R::Matrix{Float64}  # Stage Control Cost Penalty
-    Qn::Matrix{Float64} # Terminal State Cost Penalty
 end
 
 """
@@ -110,7 +108,6 @@ mutable struct MPCMatrices
         local B = state_space.B_r
         local Q = tunning_params.Q
         local R = tunning_params.R
-        local Qn = tunning_params.Qn
         local Nx = state_space.Nx
         local Nu = state_space.Nu
         local Nh = tunning_params.Nh
@@ -118,8 +115,8 @@ mutable struct MPCMatrices
         local u_hover = state_space.u_hover
 
         
-        # Compute P from dare (Direct a... Ricatti Equation)
-        P = dare(A, B, Q, R) # daRicattiEquation (Pq isso ta aqui??) STUDY THIS!!!
+        # Compute P from dare (Direct Algebraic Ricatti Equation)
+        P = dare(A, B, Q, R) # Effectivelly the Qn! Terminal Cost
         
         U = kron(Diagonal(I,Nh), [I zeros(Nu,Nx)]) # Matrix that picks out all u
         
@@ -127,13 +124,35 @@ mutable struct MPCMatrices
         b = zeros(Nh*(Nx+Nu))
         C = sparse([[B -I zeros(Nx,(Nh-1)*(Nu+Nx))]; zeros(Nx*(Nh-1),Nu) [kron(Diagonal(I,Nh-1), [A B]) zeros((Nh-1)*Nx,Nx)] + [zeros((Nh-1)*Nx,Nx) kron(Diagonal(I,Nh-1),[zeros(Nx,Nu) Diagonal(-I,Nx)])]])
 
-        D = [C; U]
+        n_restrictions = Nh - Nc - 1
+        n_fixed_control_inputs = Nh - Nc
+
+        # índices e valores para o +1 na diagonal
+        r1 = 1:n_restrictions
+        c1 = 1:n_restrictions
+        v1 = ones(n_restrictions)
+
+        # índices e valores para o -1 na sub-diagonal
+        r2 = 1:n_restrictions
+        c2 = 2:n_restrictions+1
+        v2 = -ones(n_restrictions)
+
+        F = sparse( vcat(r1, r2), vcat(c1, c2), vcat(v1, v2), n_restrictions, n_fixed_control_inputs)
+        
+        O = hcat(zeros(Nu*(Nh-Nc-1),Nc*Nu),  kron(F, I(Nu)))
+        # W é a matriz que define o que se entende por Horizonte de Controle
+        W = O*U
+
+        
+        D = [C; U; W]
 
         lb = [zeros(Nx*Nh);
-              kron(ones(Nh), model.umin - u_hover)]
+              kron(ones(Nh), model.umin - u_hover);
+              zeros(Nu*(n_restrictions))]
  
         ub = [zeros(Nx*Nh);
-              kron(ones(Nh), model.umax - u_hover)]
+              kron(ones(Nh), model.umax - u_hover);
+              zeros(Nu*(n_restrictions))]
 
         prob = OSQP.Model()
         OSQP.setup!(prob; P=H, q=b, A=D, l=lb, u=ub, verbose=false, eps_abs=1e-8, eps_rel=1e-8, polish=1);
@@ -201,6 +220,8 @@ function mpc_controller(
     if(q'*q_ref < 0)
         q .= -q
     end
+
+    # AAAA, vamos tentar mudar essa questao..
     
     x  = [x[1:3]; q; x[8:13]]
     
@@ -225,6 +246,12 @@ function mpc_controller(
 
     #Solve QP
     results = OSQP.solve!(prob)
+
+    # Check solver status
+    if results.info.status != :Solved
+        error("OSQP did not solve the problem!")
+    end
+    
     Δu = results.x[1:Nu]
 
     return u_hover + Δu

@@ -116,11 +116,11 @@ function quad_dynamics(
     dr = Q * v
     dq = 0.5 * L(q)*H*ω
 
-    local kge = kt * ground_effect(x[2] - plat_h, model.R, model.ρ, model.prop_min_h)
+    local kge = ground_effect(x[2] - plat_h, model.R, model.ρ, model.prop_min_h)
     
     dv = Q'*[0; 0; -g] + (1/m)*[zeros(2,4); kge*ones(1,4)]*u - hat(ω)*v
     
-    dω = J\(-hat(ω)*J*ω + [0 ℓ*kt 0 -ℓ*kt; -ℓ*kt 0 ℓ*kt 0; km -km km -km]*u)
+    dω = J\(-hat(ω)*J*ω + [0 ℓ 0 -ℓ; -ℓ 0 ℓ 0; km/kt -km/kt km/kt -km/kt]*u)
     
     return [dr; dq; dv; dω]
 end
@@ -181,9 +181,9 @@ function find_hover_conditions(model::Model, height::Float64)
 
     local weight = model.m * model. g
     
-    local kge = model.kt * ground_effect(height, model.R, model.ρ, model.prop_min_h)
+    local kge = ground_effect(height, model.R, model.ρ, model.prop_min_h)
     
-    u_hover = (weight/(4*kge))*ones(4)
+    u_hover = (weight/(4))*ones(4)
     
     return x_hover, u_hover
 end

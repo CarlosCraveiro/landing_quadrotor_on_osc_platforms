@@ -132,7 +132,7 @@ function closed_loop(
         height = out.x_quad[z_pos, k] - out.x_plat[z_pos, k]
         
         # DYNAMICS_RK4 - FULL STATE VECTOR LENGTH
-        out.x_quad[:, k + 1] .= dynamics_rk4(out.x_quad[:, k], out.u_quad[:, k],(x,u)->quad_dynamics(model, x, u, height), simulation)
+        out.x_quad[:, k + 1] .= dynamics_rk4(out.x_quad[:, k], out.u_quad[:, k],(x,u)->quad_dynamics(model, x, u, height), simulation.h_universe)
         
         if k == (N_uni - 1)
             out.x_ref[Nx_full*k + 1:Nx_full*(k + 1)] = gen_ref(model, traj_params, tunning_params, (k + 1) * h_uni, h_uni)[1:Nx_full]

@@ -8,12 +8,11 @@ services:
     container_name: quadrotor-landing-mpc
     ports:
       - "8888:8888"
-      - "8700-8799:8700-8799"
+#      - "8700-8799:8700-8799" Maybe would be erased on the final version (TrajectOpt Package)
     volumes:
-      - ./:/root/work              # seu workspace
-      - julia_depot:/root/.julia   # depot do Julia persistente
+      - ./:/root/work              # The project's workspace
+      - julia_depot:/root/.julia   # Persists packages after shutdown
     restart: unless-stopped
-    # se quiser ver logs com timestamps legíveis
     tty: true
 
 volumes:

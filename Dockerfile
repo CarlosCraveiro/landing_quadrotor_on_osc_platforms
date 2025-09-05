@@ -43,14 +43,10 @@ WORKDIR /root/work
 # Expose ports (Jupyter + 3D Visualizer inside project)
 EXPOSE 8888 8700-8799
 
-# Healthcheck (opcional)
-#HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=10 \
-#  CMD curl -fsS "http://localhost:8888/api/status" -H "Authorization: token ${JUPYTER_TOKEN}" || exit 1
-
-# tini como init
+# tini as init
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
-# Jupyter Notebook como root (note o --allow-root)
+# Jupyter Notebook command
 CMD ["/venv/bin/python", "-m", "notebook", "--ip=0.0.0.0", "--no-browser", \
      "--allow-root", \
      "--NotebookApp.notebook_dir=/root/work"]

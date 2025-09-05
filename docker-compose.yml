@@ -1,0 +1,20 @@
+# docker-compose.yml
+services:
+  notebook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quadrotor-landing-mpc:latest
+    container_name: quadrotor-landing-mpc
+    ports:
+      - "8888:8888"
+      - "8700-8799:8700-8799"
+    volumes:
+      - ./:/root/work              # seu workspace
+      - julia_depot:/root/.julia   # depot do Julia persistente
+    restart: unless-stopped
+    # se quiser ver logs com timestamps legíveis
+    tty: true
+
+volumes:
+  julia_depot:

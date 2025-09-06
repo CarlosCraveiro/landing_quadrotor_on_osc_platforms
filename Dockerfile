@@ -18,7 +18,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     wget tar unzip curl ca-certificates git \
     python3 python3-venv python3-pip \
-    openmpi-bin libopenmpi-dev \
     tini \
  && rm -rf /var/lib/apt/lists/*
 
@@ -39,9 +38,6 @@ RUN python3 -m venv /venv \
 
 # Default work directory
 WORKDIR /root/work
-
-# Expose ports (Jupyter + 3D Visualizer inside project)
-EXPOSE 8888 8700-8799
 
 # tini as init
 ENTRYPOINT ["/usr/bin/tini", "--"]

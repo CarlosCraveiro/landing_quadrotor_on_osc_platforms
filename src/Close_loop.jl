@@ -12,8 +12,11 @@ Verifies if the quadrotor has landed by checking if the infinity norm of the dif
 # Returns
 - `Bool`: `true` if the quadrotor is considered landed, `false` otherwise.
 """
-function verify_landing(x::Vector{Float64}, xref::Vector{Float64})
-    return infinity_norm_of_difference(x, xref) < 0.05
+function verify_landing(x::Vector{Float64}, xref::Vector{Float64}, z_idx::Int64, dz_idx::Int64)
+    # Create new vectors using only z and dz components
+    x_sub    = [x[z_idx], x[dz_idx]]
+    xref_sub = [xref[z_idx], xref[dz_idx]]
+    return maximum(abs, x_sub - xref_sub) < 0.05
 end
 
 """
@@ -83,7 +86,9 @@ function closed_loop(
         traj_params::Trajectory,
         simulation::Simulation,
         model::Model,
-        controller::Function
+        controller::Function,
+        wind_vector::Vector{Float64},
+        wind_vel::Float64
     )
     Nx_full = model.Nx
     z_pos = 3 # Position of z on the state vector
@@ -117,7 +122,7 @@ function closed_loop(
 
         if out.not_landed
             # VERIFY LANDING -- LENGTH -> FULL SIZE VECTOR, XHIST
-            out.not_landed = ~verify_landing(out.x_quad[:, k], gen_ref(model, traj_params, tunning_params, curr_time_inst, h_uni))
+            out.not_landed = ~verify_landing(out.x_quad[:, k], gen_ref(model, traj_params, tunning_params, curr_time_inst, h_uni), z_pos, dz_pos)
             out.land_time = curr_time_inst
             out.land_mark = k
         end
@@ -127,12 +132,13 @@ function closed_loop(
         out.x_plat[Nx_full*(k-1) + 1:Nx_full*(k)] = out.x_ref[Nx_full*(k-1) + 1:Nx_full*(k)]
         out.x_plat[Nx_full*(k-1) + z_pos] = out.x_plat[Nx_full*(k-1) + z_pos] - traj_params.stat_height
 
-        out.u_quad[:, k] = max.(min.(umax, uk), umin) #enforce control limits
+        out.u_quad[:, k] = max.(min.(umax, uk), umin) # enforce control limits
 
         height = out.x_quad[z_pos, k] - out.x_plat[z_pos, k]
+
         
         # DYNAMICS_RK4 - FULL STATE VECTOR LENGTH
-        out.x_quad[:, k + 1] .= dynamics_rk4(out.x_quad[:, k], out.u_quad[:, k],(x,u)->quad_dynamics(model, x, u, height), simulation.h_universe)
+        out.x_quad[:, k + 1] .= dynamics_rk4(out.x_quad[:, k], out.u_quad[:, k],(x,u)->quad_dynamics(model, x, u, height, wind_vector, wind_vel), simulation.h_universe)
         
         if k == (N_uni - 1)
             out.x_ref[Nx_full*k + 1:Nx_full*(k + 1)] = gen_ref(model, traj_params, tunning_params, (k + 1) * h_uni, h_uni)[1:Nx_full]

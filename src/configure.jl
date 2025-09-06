@@ -16,10 +16,10 @@ import Pkg; Pkg.activate(@__DIR__);
 
 #    Pkg.add("RobotDynamics");
 #    Pkg.add("GeometryBasics");
-
-    Pkg.add("TrajOptPlots");
     Pkg.add("MeshCat");
+    Pkg.build("MeshCat");
+    Pkg.add("TrajOptPlots");
     Pkg.add("RobotZoo");
     Pkg.add("StaticArrays");
-#    Pkg.add("Metaheuristics");
+    Pkg.add("Metaheuristics");
 Pkg.instantiate()

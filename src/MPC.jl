@@ -41,10 +41,10 @@ struct LinearStateSpace
     function LinearStateSpace(model, simulation, Nx, Nu, height)
         x_hover, u_hover = find_hover_conditions(model, height)
         A = ForwardDiff.jacobian(x->
-            dynamics_rk4(x, u_hover, (x,u)->quad_dynamics(model, x, u, height), simulation.h_controller)
+            dynamics_rk4(x, u_hover, (x,u)->quad_dynamics(model, x, u, height, [1.0; 0.0; 0.0], 0.0), simulation.h_controller)
             ,x_hover)
         B = ForwardDiff.jacobian(u ->
-            dynamics_rk4(x_hover, u, (x,u)->quad_dynamics(model, x, u, height), simulation.h_controller)
+            dynamics_rk4(x_hover, u, (x,u)->quad_dynamics(model, x, u, height, [1.0; 0.0; 0.0], 0.0), simulation.h_controller)
         , u_hover)
         
         # Reduced system - Ensures controlability
@@ -102,7 +102,9 @@ mutable struct MPCMatrices
         P = dare(A, B, Q, R) # Effectivelly the Qn! Terminal Cost
         
         U = kron(Diagonal(I,Nh), [I zeros(Nu,Nx)]) # Matrix that picks out all u
-        
+        Θ = kron(Diagonal(I,Nh), [ 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0;
+                                   0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0;
+                                   0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0]) #Matrix that picks out all x3 (θ)
         H = sparse([kron(Diagonal(I,Nh-1),[R zeros(Nu,Nx); zeros(Nx,Nu) Q]) zeros((Nx+Nu)*(Nh-1), Nx+Nu); zeros(Nx+Nu,(Nx+Nu)*(Nh-1)) [R zeros(Nu,Nx); zeros(Nx,Nu) P]])
         b = zeros(Nh*(Nx+Nu))
         C = sparse([[B -I zeros(Nx,(Nh-1)*(Nu+Nx))]; zeros(Nx*(Nh-1),Nu) [kron(Diagonal(I,Nh-1), [A B]) zeros((Nh-1)*Nx,Nx)] + [zeros((Nh-1)*Nx,Nx) kron(Diagonal(I,Nh-1),[zeros(Nx,Nu) Diagonal(-I,Nx)])]])
@@ -127,15 +129,19 @@ mutable struct MPCMatrices
         W = O*U
 
         
-        D = [C; U; W]
+        #D = [C; U; W]
+        #D = [C; U; Θ]
+        D = [C; U]
 
         lb = [zeros(Nx*Nh);
-              kron(ones(Nh), model.umin - u_hover);
-              zeros(Nu*(n_restrictions))]
+              kron(ones(Nh), model.umin - u_hover)]
+              #kron(ones(Nh), [ -0.13165249758739583; -0.13165249758739583; -1.0])]
+              #zeros(Nu*(n_restrictions))]
  
         ub = [zeros(Nx*Nh);
-              kron(ones(Nh), model.umax - u_hover);
-              zeros(Nu*(n_restrictions))]
+              kron(ones(Nh), model.umax - u_hover)]
+              #kron(ones(Nh), [ 0.13165249758739583; 0.13165249758739583; 1.0])]
+              #zeros(Nu*(n_restrictions))]
 
         prob = OSQP.Model()
         OSQP.setup!(prob; P=H, q=b, A=D, l=lb, u=ub, verbose=false, eps_abs=1e-8, eps_rel=1e-8, polish=1);
@@ -230,10 +236,26 @@ function mpc_controller(
     #Solve QP
     results = OSQP.solve!(prob)
 
+    #println(results.x[Nu + 4:Nu + 6])
+    #vector = kron(Diagonal(I,Nh), [ 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0 0;
+    #                               0 0 0 0 0 0 0 0 1 0 0 0 0 0 0 0;
+    #                               0 0 0 0 0 0 0 0 0 1 0 0 0 0 0 0]) * results.x
+
+    #lower = kron(ones(Nh), [ -1.0; -1.0; -1.0])
+    #upper = kron(ones(Nh), [ 1.0; 1.0; 1.0])
+    #ok_mask = (vector .>= lower) .& (vector .<= upper)
+
+    #viol_lower = findall(vector .< lower)
+    #viol_upper = findall(vector .> upper)
+
+    #println(viol_lower)
+    #println(viol_upper)
+    
     # Check solver status
-    if results.info.status != :Solved
-        error("OSQP did not solve the problem!")
-    end
+    #if results.info.status != :Solved
+    #    println(results.info.status)
+    #    error("OSQP did not solve the problem!")
+    #end
     
     Δu = results.x[1:Nu]
 

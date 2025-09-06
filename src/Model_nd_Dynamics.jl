@@ -42,6 +42,8 @@ mutable struct Model
 
     Nx::Int32 # Full state vector size
     Nu::Int32 # Full control dimension
+
+    K_aero::Matrix{Float64} # K aero drag matrix {TODO: Cite system identification paper}
 end
 
 """
@@ -71,7 +73,7 @@ function ground_effect(
 end
 
 """
-    quad_dynamics(model::Model, x, u, plat_h::Float64)
+    quad_dynamics(model::Model, x, u, plat_h::Float64) {DEPRECATED DESCRIPTION}
 
 Computes the time derivative of the quadrotor's state vector based on the applied control inputs.
 
@@ -94,7 +96,9 @@ function quad_dynamics(
         model::Model,
         x,
         u,
-        plat_h::Float64
+        plat_h::Float64,
+        wind_dir,          # 3×1 unit vector, world frame
+        wind_speed::Float64
     )
     local r = x[1:3]
     local q = x[4:7] / norm(x[4:7]) # Ensure q is a unit quaternion
@@ -117,9 +121,18 @@ function quad_dynamics(
     dq = 0.5 * L(q)*H*ω
 
     local kge = ground_effect(x[2] - plat_h, model.R, model.ρ, model.prop_min_h)
+
+    # Wind effect and Translational drag
+    v_rel = v - Q' * (wind_speed .* wind_dir)    # body-frame relative airspeed
+    #θdot = sqrt.(max.(u ./ kt, 0.0))             # per-rotor angular speeds from thrusts
+    θdot = sqrt.(u ./ kt)             # per-rotor angular speeds from thrusts
+    θΣ = sum(θdot)                               # sum of rotor speeds (rad/s)
+    F_aero_b = - (model.K_aero * (θΣ .* v_rel))  # aerodynamic drag (body frame)
+
     
-    dv = Q'*[0; 0; -g] + (1/m)*[zeros(2,4); kge*ones(1,4)]*u - hat(ω)*v
-    
+    dv = Q'*[0; 0; -g] + (1/m)*[zeros(2,4); kge*ones(1,4)]*u + (1/m)*F_aero_b - hat(ω)*v
+    #dv = Q'*[0; 0; -g] + (1/m)*[zeros(2,4); kge*ones(1,4)]*u - hat(ω)*v
+
     dω = J\(-hat(ω)*J*ω + [0 ℓ 0 -ℓ; -ℓ 0 ℓ 0; km/kt -km/kt km/kt -km/kt]*u)
     
     return [dr; dq; dv; dω]

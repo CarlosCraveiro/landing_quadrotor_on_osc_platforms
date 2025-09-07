@@ -1,0 +1,17 @@
+# docker-compose.yml
+services:
+  notebook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: quadrotor-landing-mpc:latest
+    container_name: quadrotor-landing-mpc
+    network_mode: host   # <-- Host networking mode
+    volumes:
+      - ./:/root/work              # The project's workspace
+      - julia_depot:/root/.julia   # Persists packages after shutdown
+    restart: unless-stopped
+    tty: true
+
+volumes:
+  julia_depot:

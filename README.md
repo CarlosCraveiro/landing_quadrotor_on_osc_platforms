@@ -1,13 +1,74 @@
-# Landing of a Quadrotor on an Oscillating Platform Using Predictive Control Strategy
+# Quadrotor Landing on Oscillating Platforms with MPC
 
-## Project's Summary
-Unmanned Autonomous Aerial Vehicles with vertical take-off and landing capabilities (UAVs-VTOL) are increasingly used in automating tasks across various sectors of the economy. Consequently, sectors such as the port and oil industries have been integrating these aircraft into their activities, particularly for monitoring tasks on floating platforms. In this new scenario, the operation of these aircraft needs to be reconsidered, as atypical operating conditions, such as the presence of strong wind gusts and landing platforms with significant oscillation due to the maritime environment, must be taken into account by the control strategy employed in UAVs to avoid catastrophic failures. In light of this problem, this project proposes the use of a model-based predictive control algorithm (MPC) for the proper operation of quadrotors under the mentioned conditions, with a specific focus on landing on oscillating platforms. To validate the proposed strategy, in addition to simulating the system comprising the quadrotor, controller, and oscillating platform using MATLAB/Simulink software, it is intended to provide results from other already proposed and published solutions for performance comparison. Therefore, this project is expected to contribute to the fields of Control Systems, Automation, and Autonomous Aerial Systems, bridging gaps observed in existing methodologies.
+This repository contains the code and simulations of the undergraduate scientific initiation project funded by [FAPESP](https://bv.fapesp.br/en/bolsas/222615/landing-of-a-quadrotor-on-an-oscillating-platform-using-predictive-control-strategy/), focused on the development and evaluation of **Model Predictive Control (MPC)** strategies for quadrotor landing on oscillating platforms, typical of maritime scenarios.
 
-## Description
+---
 
-TODO..
+## Project Overview
 
-## Author
+Unmanned Aerial Vehicles (UAVs) with vertical take-off and landing capabilities (VTOL) are increasingly used in the automation of tasks in sectors such as port operations and the oil industry.
+In these scenarios, UAVs must operate under adverse conditions, including **gusty winds** and **oscillating landing platforms**, requiring new control strategies to prevent catastrophic failures.
+
+This project proposes the use of **MPC** to handle such conditions, with a specific focus on ensuring safe landing on mobile platforms. Validation is carried out through **simulations in Julia**, comparing the performance of the proposed controller with existing solutions in the literature, such as the LQR controller.
+
+## Repository Structure
+
+* `src/` – simulation and controller code
+* `notebooks/` – interactive notebooks for results analysis
+* `Dockerfile` / `docker-compose.yml` – reproducible environment via Docker
+
+---
+
+## Dependencies
+
+The entire environment is containerized in **Docker**, but you need to have Docker Engine and Docker Compose installed.
+
+### Ubuntu / Debian
+
+```bash
+sudo apt update
+sudo apt install -y docker.io docker-compose
+sudo systemctl enable --now docker
+```
+
+### Fedora
+
+```bash
+sudo dnf install -y docker docker-compose
+sudo systemctl enable --now docker
+```
+
+---
+
+## How to run
+
+Clone the repository and execute:
+
+```bash
+docker compose build
+docker compose up
+```
+
+After initialization, copy and paste into your browser the link displayed in the terminal, for example:
+
+```
+http://127.0.0.1:8888/tree?token=...
+```
+
+This will open the Jupyter environment with the project notebooks.
+
+---
+
+## Credits
+
+Parts of this project were inspired by or adapted from the lecture notebooks of the course
+[Optimal-Control-16-745/lecture-notebooks-2023](https://github.com/Optimal-Control-16-745/lecture-notebooks-2023), licensed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). Changes and extensions have been made to adapt the code to the scope of this work.
+
+## Acknowledgements
+
+This project was supported by the São Paulo Research Foundation (FAPESP), through the funding of an undergraduate research scholarship.
+
+## Authors
 - Student Researcher:
     [ *Carlos Henrique Craveiro Aquino Veras* ](https://bv.fapesp.br/pt/pesquisador/736088/carlos-henrique-craveiro-aquino-veras/)
 - Advisor:

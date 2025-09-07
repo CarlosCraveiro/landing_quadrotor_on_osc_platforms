@@ -1,21 +1,25 @@
 include("Model_nd_Dynamics.jl")
 
 """
-    verify_landing(x::Vector{Float64}, xref::Vector{Float64})
+    verify_landing(x::Vector{Float64}, xref::Vector{Float64}, z_idx::Int64, dz_idx::Int64) -> Bool
 
-Verifies if the quadrotor has landed by checking if the infinity norm of the difference between the current state and the reference state is below a threshold.
+Determines if the quadrotor has landed by checking if its vertical position (`z`) 
+and vertical velocity (`dz`) are within 0.05 of the reference values.
 
 # Arguments
-- `x::Vector{Float64}`: The current full state vector of the quadrotor.
-- `xref::Vector{Float64}`: The reference state vector (typically the desired landing state).
+- `x`: Current full state vector of the quadrotor.
+- `xref`: Desired reference state vector.
+- `z_idx`: Index of the vertical position in the state vector.
+- `dz_idx`: Index of the vertical velocity in the state vector.
 
 # Returns
-- `Bool`: `true` if the quadrotor is considered landed, `false` otherwise.
+- `Bool`: `true` if both `z` and `dz` are within the threshold, `false` otherwise.
 """
 function verify_landing(x::Vector{Float64}, xref::Vector{Float64}, z_idx::Int64, dz_idx::Int64)
     # Create new vectors using only z and dz components
     x_sub    = [x[z_idx], x[dz_idx]]
     xref_sub = [xref[z_idx], xref[dz_idx]]
+    
     return maximum(abs, x_sub - xref_sub) < 0.05
 end
 
@@ -61,23 +65,27 @@ end
 
 
 """
-    closed_loop(x0::Vector{Float64}, state_space::LinearStateSpace, tunning_params::MPCTunningParameters, traj_params::Trajectory, simulation::Simulation, model::Model, controller::Function)
+    closed_loop(x0::Vector{Float64}, state_space::LinearStateSpace, tunning_params::MPCTunningParameters,
+                traj_params::Trajectory, simulation::Simulation, model::Model, controller::Function,
+                wind_vector::Vector{Float64}, wind_vel::Float64) -> SimResults
 
-Simulates the closed-loop control of the quadrotor using the provided initial state, controller, and system parameters.
-
-This function runs the simulation over the specified time horizon, applying the control inputs calculated by the `controller` function and updating the quadrotor's state using the system dynamics. It also tracks the reference trajectory and checks for landing.
+Runs a closed-loop simulation of the quadrotor and platform system for the full simulation
+duration, updating states using the given controller and dynamics at each universe time step.
 
 # Arguments
-- `x0::Vector{Float64}`: The initial full state vector of the quadrotor.
-- `state_space::LinearStateSpace`: The `LinearStateSpace` struct containing the linearized system dynamics.
-- `tunning_params::MPCTunningParameters`: The `MPCTunningParameters` struct containing the controller tuning parameters.
-- `traj_params::Trajectory`: The `Trajectory` struct defining the desired motion.
-- `simulation::Simulation`: The `Simulation` struct containing the simulation parameters (time steps, final time).
-- `model::Model`: The `Model` struct containing the quadrotor's physical parameters.
-- `controller::Function`: The control function to be used (e.g., `mpc_controller` or `lqr_controller`). This function should accept the current time and state as input and return the control input.
+- `x0`: Initial full state vector of the quadrotor.
+- `state_space`: Linearized system dynamics.
+- `tunning_params`: MPC tuning parameters.
+- `traj_params`: Desired trajectory parameters.
+- `simulation`: Simulation configuration (time steps, durations).
+- `model`: Quadrotor model parameters.
+- `controller`: Control function computing the control input.
+- `wind_vector`: Direction of external wind disturbance.
+- `wind_vel`: Magnitude of external wind disturbance.
 
 # Returns
-- `SimResults`: A `SimResults` struct containing the simulation history of the quadrotor's state, control inputs, reference trajectory, platform state, landing time, and landing status.
+- `SimResults`: Struct containing the histories of states, control inputs, reference trajectories,
+  platform states, landing time, and landing status.
 """
 function closed_loop(
         x0::Vector{Float64},
@@ -116,12 +124,10 @@ function closed_loop(
         curr_time_inst = k * h_uni
 
         if(k % N_ratio == 0)
-            # CONTROLLER xhist -> FULL SIZE STATE VECTOR LENGTH
             uk = controller(curr_time_inst, out.x_quad[:, k])
         end
 
         if out.not_landed
-            # VERIFY LANDING -- LENGTH -> FULL SIZE VECTOR, XHIST
             out.not_landed = ~verify_landing(out.x_quad[:, k], gen_ref(model, traj_params, tunning_params, curr_time_inst, h_uni), z_pos, dz_pos)
             out.land_time = curr_time_inst
             out.land_mark = k
@@ -136,8 +142,7 @@ function closed_loop(
 
         height = out.x_quad[z_pos, k] - out.x_plat[z_pos, k]
 
-        
-        # DYNAMICS_RK4 - FULL STATE VECTOR LENGTH
+        # DYNAMICS RK4
         out.x_quad[:, k + 1] .= dynamics_rk4(out.x_quad[:, k], out.u_quad[:, k],(x,u)->quad_dynamics(model, x, u, height, wind_vector, wind_vel), simulation.h_universe)
         
         if k == (N_uni - 1)

@@ -29,20 +29,20 @@ struct Simulation
 end
 
 """
-    dynamics_rk4(x::Vector{Float64}, u::Vector{Float64}, dynamics::Function, sim_param::Simulation)
+    dynamics_rk4(x::Vector{Float64}, u::Vector{Float64}, dynamics::Function, h_step::Float64) -> Vector{Float64}
 
-Integrates the system dynamics one time step using the fourth-order Runge-Kutta (RK4) method with zero-order hold on the control input.
-
-This function takes the current state, control input, the dynamics function, and simulation parameters to compute the next state of the system. It also ensures that the quaternion part of the state vector remains normalized.
+Integrates the system dynamics over one time step using the fourth-order Runge-Kutta (RK4) method
+with zero-order hold on the control input. The quaternion part of the state vector is re-normalized
+after integration.
 
 # Arguments
-- `x`: The current state vector of the system.
-- `u`: The control input vector, held constant over the integration step.
-- `dynamics::Function`: A function that computes the time derivative of the state vector, i.e., `dx = dynamics(x, u)`. This function should accept the state and control input as arguments and return the state derivative.
-- `sim_param::Simulation`: The `Simulation` struct containing the simulation parameters, including the universe time step `h_universe`.
+- `x`: Current state vector.
+- `u`: Control input vector, assumed constant during the step.
+- `dynamics`: Function that computes the state derivative, `dx = dynamics(x, u)`.
+- `h_step`: Integration step size.
 
 # Returns
-- `Vector{Float64}`: The state vector at the next time step, after one RK4 integration.
+- `Vector{Float64}`: State vector at the next time step.
 """
 function dynamics_rk4(
         x, 
@@ -51,8 +51,6 @@ function dynamics_rk4(
         h_step
     )
     # RK4 integration with zero-order hold on u
-    #local h_u = sim_param.h_universe
-
     f1 = dynamics(x, u)
     f2 = dynamics(x + 0.5 * h_step * f1, u)
     f3 = dynamics(x + 0.5 * h_step * f2, u)

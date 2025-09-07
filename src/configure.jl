@@ -1,25 +1,20 @@
 import Pkg; Pkg.activate(@__DIR__);
-
- #   Pkg.add("CoordinateTransformations");
- #   Pkg.add("Rotations");
- #   Pkg.add("Colors");
-
     Pkg.add("LinearAlgebra");
     Pkg.add("Test");
     Pkg.add("SparseArrays");
     Pkg.add("ForwardDiff");
     Pkg.add("ControlSystems");
-    Pkg.add("OSQP");
+    Pkg.add("OSQP"); # Our solver
     Pkg.add("BlockDiagonals");
     
-    Pkg.add("Plots");
+    Pkg.add("Plots"); # To allow Ploting
 
-#    Pkg.add("RobotDynamics");
-#    Pkg.add("GeometryBasics");
+    # To allow 3D Visualization
     Pkg.add("MeshCat");
     Pkg.build("MeshCat");
     Pkg.add("TrajOptPlots");
     Pkg.add("RobotZoo");
     Pkg.add("StaticArrays");
-    Pkg.add("Metaheuristics");
+
+#    Pkg.add("Metaheuristics"); To a future work on optimizing Q and R choice to reduce land time
 Pkg.instantiate()

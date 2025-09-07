@@ -23,13 +23,13 @@ function lqr_controller(
     simulation::Simulation,
     tunning_params::MPCTunningParameters,
     traj_params::Trajectory,
-    lstate_space::LinearStateSpace, # linear state space
+    lstate_space::LinearStateSpace,
     t,
     x::Vector{Float64},
     xref::Vector{Float64}
     )
 
-    K_matrix = dlqr(lstate_space.A_r, lstate_space.B_r, tunning_params.Q, tunning_params.R)
+    K_matrix = dlqr(lstate_space.F_r, lstate_space.H_r, tunning_params.Q, tunning_params.R)
     ϕ = qtorp(L(xref[4:7])'*x[4:7])
     Δx̃ = [x[1:3] - xref[1:3]; ϕ; x[8:10] - xref[8:10]; x[11:13] - xref[11:13]]
     
